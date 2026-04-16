@@ -5,7 +5,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
@@ -380,8 +380,9 @@ Perform OCR on the handwritten script, compare semantically with the answer key,
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }
                 await db.performance.insert_one(perf_doc)
-        except Exception:
-            pass  # User not authenticated, skip saving
+                logger.info(f"Performance saved for user {user['_id']}: {score_pct}%")
+        except Exception as perf_err:
+            logger.warning(f"Could not save performance (user may not be authenticated): {perf_err}")
 
         return result
 
@@ -538,10 +539,17 @@ async def generate_pdf_report(request: ReportRequest):
             elements.append(Paragraph(analysis['overall_feedback'], styles['Normal']))
 
         doc.build(elements)
-        pdf_path = Path("/tmp/arivupro_report.pdf")
-        with open(pdf_path, "wb") as f:
-            f.write(buffer.getvalue())
-        return FileResponse(path=pdf_path, filename=f"ArivuPro_Report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.pdf", media_type="application/pdf")
+        # Return as streaming response with proper headers for download
+        buffer.seek(0)
+        filename = f"ArivuPro_Report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.pdf"
+        return StreamingResponse(
+            buffer,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
+        )
     except Exception as e:
         logger.error(f"PDF generation error: {e}")
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")

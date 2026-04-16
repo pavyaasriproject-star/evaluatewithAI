@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   FileText, Key, PenLine, Upload, Sparkles, Download, TrendingUp,
   AlertCircle, CheckCircle, Clock, BarChart3, LogOut, MessageSquare,
-  Send, Plus, X, GraduationCap
+  Send, Plus, X, GraduationCap, Award
 } from 'lucide-react';
 
 const LOGO_URL = "https://customer-assets.emergentagent.com/job_instant-feedback-hub-1/artifacts/t71o3bm7_image.png";
@@ -37,19 +38,25 @@ const Dashboard = () => {
   const [careerLoading, setCareerLoading] = useState(false);
   const [uploadMode, setUploadMode] = useState('single');
 
-  useEffect(() => {
-    fetchPerformance();
-  }, []);
-
-  const fetchPerformance = async () => {
+  const fetchPerformance = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/performance`, { withCredentials: true });
-      setPerformanceHistory(data.records || []);
-    } catch {
-      const local = localStorage.getItem('arivupro_history');
-      if (local) setPerformanceHistory(JSON.parse(local));
+      const serverRecords = data.records || [];
+      if (serverRecords.length > 0) {
+        setPerformanceHistory(serverRecords);
+        return;
+      }
+    } catch {}
+    // Fallback to localStorage
+    const local = localStorage.getItem('arivupro_history');
+    if (local) {
+      try { setPerformanceHistory(JSON.parse(local)); } catch {}
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPerformance();
+  }, [fetchPerformance]);
 
   const fileToBase64 = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -125,7 +132,21 @@ const Dashboard = () => {
         }, { withCredentials: true, timeout: 180000 });
         setAnalysisResult(data);
         toast.success('Analysis complete!');
-        fetchPerformance();
+        
+        // Save to localStorage as backup
+        const localHistory = JSON.parse(localStorage.getItem('arivupro_history') || '[]');
+        localHistory.unshift({
+          score_percentage: data.score_percentage,
+          obtained_marks: data.obtained_marks,
+          total_marks: data.total_marks,
+          errors_count: data.errors?.length || 0,
+          strengths_count: data.strengths?.length || 0,
+          timestamp: data.timestamp
+        });
+        localStorage.setItem('arivupro_history', JSON.stringify(localHistory.slice(0, 50)));
+        
+        // Refresh performance from server
+        setTimeout(() => fetchPerformance(), 500);
       } catch (e) {
         console.error('Analysis error:', e);
         toast.error(e.response?.data?.detail || 'Analysis failed. Please try again.');
@@ -136,19 +157,42 @@ const Dashboard = () => {
   const downloadReport = async () => {
     if (!analysisResult) return;
     try {
-      const { data } = await axios.post(`${API}/generate-report`, {
+      const response = await axios.post(`${API}/generate-report`, {
         analysis_result: analysisResult,
         student_name: user?.name || 'Student',
       }, { responseType: 'blob', withCredentials: true });
-      const url = window.URL.createObjectURL(new Blob([data]));
+      
+      // Check if we got a valid PDF blob
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `ArivuPro_Report_${Date.now()}.pdf`);
+      link.download = `ArivuPro_Report_${user?.name || 'Student'}_${new Date().toISOString().slice(0,10)}.pdf`;
       document.body.appendChild(link);
       link.click();
-      link.remove();
-      toast.success('Report downloaded');
-    } catch { toast.error('Failed to download report'); }
+      
+      // Cleanup
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        link.remove();
+      }, 100);
+      
+      toast.success('Report downloaded successfully!');
+    } catch (err) {
+      console.error('Download error:', err);
+      // If blob response contains error JSON, try to parse it
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const errorData = JSON.parse(text);
+          toast.error(errorData.detail || 'Failed to download report');
+        } catch {
+          toast.error('Failed to download report. Please try again.');
+        }
+      } else {
+        toast.error(err.response?.data?.detail || 'Failed to download report');
+      }
+    }
   };
 
   const sendCareerQuestion = async () => {
@@ -435,42 +479,112 @@ const Dashboard = () => {
 
           {/* ── PERFORMANCE TAB ── */}
           <TabsContent value="performance" className="space-y-6">
-            <Card className="bg-surface border-border-gray">
-              <CardHeader><CardTitle className="text-lg font-heading text-text-primary flex items-center gap-2">
-                <TrendingUp size={20} className="text-primary-teal" /> Your Performance Journey
-              </CardTitle></CardHeader>
-              <CardContent>
-                {performanceHistory.length === 0 ? (
-                  <div className="text-center py-16">
-                    <BarChart3 size={48} className="mx-auto text-text-secondary/30 mb-4" />
-                    <p className="text-text-secondary">No assessments yet. Upload and analyze your first script!</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {performanceHistory.map((record, idx) => (
-                      <motion.div key={idx} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.05 }}
-                        className="flex items-center justify-between p-4 bg-surface-elevated rounded-lg border border-border-gray/50 hover:border-primary-teal/30 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-lg bg-primary-teal/10 flex items-center justify-center">
-                            <Clock size={18} className="text-primary-teal" />
-                          </div>
-                          <div>
-                            <p className="text-text-primary text-sm font-medium">{new Date(record.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                            <p className="text-text-secondary text-xs">{record.obtained_marks}/{record.total_marks} marks | {record.errors_count} errors</p>
-                          </div>
+            {performanceHistory.length === 0 ? (
+              <Card className="bg-surface border-border-gray">
+                <CardContent className="py-20 text-center">
+                  <BarChart3 size={56} className="mx-auto text-text-secondary/20 mb-4" />
+                  <h3 className="text-lg font-heading text-text-primary mb-2">No assessments yet</h3>
+                  <p className="text-text-secondary text-sm mb-6 max-w-md mx-auto">
+                    Upload your question paper, answer key, and answer script in the Analyze tab to get your first AI-powered grading.
+                  </p>
+                  <Button data-testid="go-analyze-btn" onClick={() => setActiveTab('analyze')} className="bg-primary-teal hover:bg-primary-teal-glow text-white">
+                    <Upload size={18} className="mr-2" /> Start Analyzing
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Summary Stats */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Total Assessments', value: performanceHistory.length, icon: FileText, color: 'text-primary-teal' },
+                    { label: 'Best Score', value: `${Math.max(...performanceHistory.map(r => r.score_percentage)).toFixed(1)}%`, icon: Award, color: 'text-success' },
+                    { label: 'Average Score', value: `${(performanceHistory.reduce((a, r) => a + r.score_percentage, 0) / performanceHistory.length).toFixed(1)}%`, icon: BarChart3, color: 'text-primary-teal' },
+                    { label: 'Latest Score', value: `${performanceHistory[0]?.score_percentage?.toFixed(1) || 0}%`, icon: TrendingUp, color: performanceHistory.length >= 2 && performanceHistory[0]?.score_percentage > performanceHistory[1]?.score_percentage ? 'text-success' : 'text-warning-wn' },
+                  ].map(stat => (
+                    <Card key={stat.label} className="bg-surface border-border-gray">
+                      <CardContent className="p-5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <stat.icon size={16} className={stat.color} />
+                          <span className="text-xs text-text-secondary">{stat.label}</span>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <div className="w-32 hidden sm:block"><Progress value={record.score_percentage} className="h-2" /></div>
-                          <span className={`font-bold text-lg font-heading ${record.score_percentage >= 60 ? 'text-primary-teal' : record.score_percentage >= 40 ? 'text-warning-wn' : 'text-error'}`}>
-                            {record.score_percentage.toFixed(1)}%
-                          </span>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                        <p className="text-2xl font-bold text-text-primary font-heading">{stat.value}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Performance Trend Chart */}
+                <Card className="bg-surface border-border-gray">
+                  <CardHeader><CardTitle className="text-lg font-heading text-text-primary flex items-center gap-2">
+                    <TrendingUp size={20} className="text-primary-teal" /> Score Trend
+                  </CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={[...performanceHistory].reverse().map((r, i) => ({
+                          name: `#${i + 1}`,
+                          date: new Date(r.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                          score: r.score_percentage,
+                          marks: r.obtained_marks,
+                          total: r.total_marks,
+                        }))}>
+                          <defs>
+                            <linearGradient id="tealGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#0D9488" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#0D9488" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" />
+                          <XAxis dataKey="date" tick={{ fill: '#9CA3AF', fontSize: 12 }} axisLine={{ stroke: '#374151' }} />
+                          <YAxis domain={[0, 100]} tick={{ fill: '#9CA3AF', fontSize: 12 }} axisLine={{ stroke: '#374151' }} />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', color: '#F9FAFB' }}
+                            labelStyle={{ color: '#9CA3AF' }}
+                            formatter={(value, name) => [`${value.toFixed(1)}%`, 'Score']}
+                          />
+                          <Area type="monotone" dataKey="score" stroke="#0D9488" strokeWidth={2} fill="url(#tealGrad)" dot={{ fill: '#0D9488', r: 4 }} activeDot={{ r: 6, fill: '#2DD4BF' }} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* History List */}
+                <Card className="bg-surface border-border-gray">
+                  <CardHeader><CardTitle className="text-lg font-heading text-text-primary flex items-center gap-2">
+                    <Clock size={20} className="text-primary-teal" /> Assessment History
+                  </CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {performanceHistory.map((record, idx) => (
+                        <motion.div key={idx} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.05 }}
+                          className="flex items-center justify-between p-4 bg-surface-elevated rounded-lg border border-border-gray/50 hover:border-primary-teal/30 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-lg bg-primary-teal/10 flex items-center justify-center font-heading font-bold text-primary-teal text-sm">
+                              #{performanceHistory.length - idx}
+                            </div>
+                            <div>
+                              <p className="text-text-primary text-sm font-medium">
+                                {new Date(record.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                <span className="text-text-secondary/50 ml-2 text-xs">{new Date(record.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                              </p>
+                              <p className="text-text-secondary text-xs">{record.obtained_marks}/{record.total_marks} marks | {record.errors_count || 0} errors</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="w-24 hidden sm:block"><Progress value={record.score_percentage} className="h-2" /></div>
+                            <span className={`font-bold text-lg font-heading min-w-[60px] text-right ${record.score_percentage >= 60 ? 'text-primary-teal' : record.score_percentage >= 40 ? 'text-warning-wn' : 'text-error'}`}>
+                              {record.score_percentage.toFixed(1)}%
+                            </span>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </TabsContent>
 
           {/* ── CAREER ADVISOR TAB ── */}

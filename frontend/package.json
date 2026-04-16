@@ -96,4 +96,7 @@
   "react-day-picker": {
     "date-fns": "$date-fns"
   }
+  "resolutions": {
+    "ajv": "8.12.0"
+  }
 }

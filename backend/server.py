@@ -22,6 +22,7 @@ from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel, Field
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+import fitz  # PyMuPDF for PDF to image conversion
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
@@ -282,24 +283,65 @@ If you cannot read the handwriting clearly, still provide your best assessment.
 All fields are required. Return valid JSON only."""
         ).with_model("anthropic", "claude-sonnet-4-5-20250929")
 
-        # Build image contents
+        # Build image contents - convert PDFs to images if needed
         images = []
-        for b64_data in [request.question_paper, request.answer_key, request.answer_script]:
+        mime_types = [request.question_mime, request.key_mime, request.script_mime]
+        labels = ["Question Paper", "Answer Key", "Answer Script"]
+        
+        for b64_data, mime_type, label in zip(
+            [request.question_paper, request.answer_key, request.answer_script],
+            mime_types, labels
+        ):
             # Clean base64 - remove data URI prefix if present
             clean_b64 = b64_data
             if ',' in clean_b64:
                 clean_b64 = clean_b64.split(',')[1]
-            # Remove whitespace
             clean_b64 = clean_b64.strip().replace('\n', '').replace('\r', '').replace(' ', '')
-            images.append(ImageContent(image_base64=clean_b64))
+            
+            # Check if this is a PDF and convert to image
+            # Check if this is a PDF - detect by mime type or by base64 header
+            is_pdf = (mime_type == 'application/pdf')
+            if not is_pdf:
+                try:
+                    # Check first few bytes for PDF magic number (%PDF)
+                    first_bytes = base64.b64decode(clean_b64[:20] + '==')
+                    if first_bytes[:4] == b'%PDF':
+                        is_pdf = True
+                except Exception:
+                    pass
+
+            if is_pdf:
+                try:
+                    pdf_bytes = base64.b64decode(clean_b64)
+                    pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                    num_pages = len(pdf_doc)
+                    # Convert each page (up to 5 pages) to images
+                    for page_num in range(min(num_pages, 5)):
+                        page = pdf_doc[page_num]
+                        # Render at 2x resolution for better OCR
+                        mat = fitz.Matrix(2.0, 2.0)
+                        pix = page.get_pixmap(matrix=mat)
+                        img_bytes = pix.tobytes("png")
+                        img_b64 = base64.b64encode(img_bytes).decode('utf-8')
+                        images.append(ImageContent(image_base64=img_b64))
+                    pdf_doc.close()
+                    logger.info(f"{label}: Converted PDF ({num_pages} pages) to images")
+                except Exception as pdf_err:
+                    logger.error(f"PDF conversion error for {label}: {pdf_err}")
+                    raise HTTPException(status_code=400, detail=f"Failed to process PDF for {label}: {str(pdf_err)}")
+            else:
+                # Regular image - send as-is
+                images.append(ImageContent(image_base64=clean_b64))
+                logger.info(f"{label}: Using as image directly")
 
         user_message = UserMessage(
-            text="""Analyze these three documents:
-1. QUESTION PAPER (first image)
-2. OFFICIAL ANSWER KEY (second image)
-3. STUDENT'S HANDWRITTEN ANSWER SCRIPT (third image)
+            text=f"""Analyze these documents ({len(images)} images total):
+The images are grouped as:
+- QUESTION PAPER (first set of images)
+- OFFICIAL ANSWER KEY (second set of images)
+- STUDENT'S HANDWRITTEN ANSWER SCRIPT (remaining images)
 
-Perform OCR on the handwritten script, compare semantically with the answer key, grade it, and return ONLY valid JSON.""",
+Perform OCR on the handwritten script, compare semantically with the answer key, grade it, and return ONLY valid JSON as specified in your instructions.""",
             file_contents=images
         )
 

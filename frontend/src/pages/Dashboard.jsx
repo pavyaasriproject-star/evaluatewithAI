@@ -122,7 +122,7 @@ const Dashboard = () => {
           question_mime: documents.questionPaper.mime,
           key_mime: documents.answerKey.mime,
           script_mime: documents.answerScript.mime,
-        }, { withCredentials: true, timeout: 120000 });
+        }, { withCredentials: true, timeout: 180000 });
         setAnalysisResult(data);
         toast.success('Analysis complete!');
         fetchPerformance();

@@ -1,0 +1,68 @@
+{
+  "theme": "dark",
+  "archetype": "4 (Swiss & High-Contrast - Dark Mode adapted for ArivuPro)",
+  "colors": {
+    "background": "#030712",
+    "surface": "#111827",
+    "surface_elevated": "#1F2937",
+    "primary_teal": "#0D9488",
+    "primary_teal_glow": "#2DD4BF",
+    "primary_teal_muted": "#115E59",
+    "text_primary": "#F9FAFB",
+    "text_secondary": "#9CA3AF",
+    "border": "#374151",
+    "success": "#10B981",
+    "error": "#EF4444",
+    "warning_wn": "#F59E0B"
+  },
+  "typography": {
+    "heading_font": "Cabinet Grotesk",
+    "body_font": "Manrope",
+    "mono_font": "JetBrains Mono",
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl tracking-tight font-bold",
+      "h2": "text-2xl sm:text-3xl tracking-tight font-semibold",
+      "h3": "text-xl font-medium",
+      "body": "text-base leading-relaxed",
+      "mono_label": "font-mono text-xs tracking-wider uppercase"
+    }
+  },
+  "spacing_and_layout": {
+    "generous_padding": "p-6 sm:p-8",
+    "grid_strategy": "MODE B: THE 'CONTROL ROOM' GRID for Dashboard. grid-cols-1 lg:grid-cols-4 gap-6.",
+    "border_radius": "rounded-lg",
+    "borders": "1px solid border-gray-700/50"
+  },
+  "components": {
+    "Triple_Document_Upload": {
+      "style": "Three distinct dropzones in a row. Dashed borders (border-gray-700 hover:border-teal-400), dark surface. Teal icons.",
+      "shadcn_base": "Card"
+    },
+    "Circular_Score_Indicator": {
+      "style": "Massive central dashboard widget. Large circular SVG stroke. Stroke color: Teal 400 with drop-shadow glow.",
+      "shadcn_base": "Progress / Chart"
+    },
+    "Correction_Log": {
+      "style": "Dense tabular layout. Use JetBrains Mono for exact mistakes. Badges for Red (Error) and Amber (Missing WN).",
+      "shadcn_base": "Table, Badge"
+    },
+    "Header": {
+      "style": "Sticky, glassmorphism (bg-gray-950/80 backdrop-blur-xl), 1px bottom border."
+    }
+  },
+  "media": {
+    "hero_background": "https://images.unsplash.com/photo-1774187251887-e994c80ceddd?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwyfHxkYXJrJTIwZ2VvbWV0cmljJTIwYWJzdHJhY3QlMjB0ZXh0dXJlfGVufDB8fHx8MTc3NjMyMDUxM3ww&ixlib=rb-4.1.0&q=85",
+    "placeholder_user": "https://images.unsplash.com/photo-1756201350278-d221edd978d9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwyfHxzdHVkZW50JTIwc3R1ZHlpbmclMjBkYXJrJTIwbW9vZHl8ZW58MHx8fHwxNzc2MzIwNTAzfDA&ixlib=rb-4.1.0&q=85",
+    "logo_abstract": "https://images.unsplash.com/photo-1760037028517-e5cc6e3ebd3e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxNzV8MHwxfHNlYXJjaHwxfHxtaW5pbWFsaXN0JTIwbG9nbyUyMGFic3RyYWN0fGVufDB8fHx8MTc3NjMyMDUxM3ww&ixlib=rb-4.1.0&q=85"
+  },
+  "instructions_to_main_agent": [
+    "Install fonts: Cabinet Grotesk, Manrope, JetBrains Mono.",
+    "Set the Tailwind config to dark mode by default using the provided dark-mode Hex color palette.",
+    "Implement the 'Control Room' grid for the dashboard (4 columns, packed tightly, high data density).",
+    "Build the Triple Document Upload section featuring three interconnected dropzones (Question, Key, Answer Script) that validate files.",
+    "Implement ArivuPro Teal (#0D9488) primarily as an interactive accent (buttons, progress rings, links), not as a massive flat background color.",
+    "For the Correction Log, use color-coded badges for grading semantic feedback: Red for explicit errors, Green for correct, Amber for missing 'Working Notes (WN1, WN2)'.",
+    "Add test IDs (`data-testid`) to all interactive elements for robust automated testing.",
+    "Use Phosphor Icons (@phosphor-icons/react) for dashboard density and premium look."
+  ]
+}

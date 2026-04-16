@@ -1,34 +1,115 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+.App {
+  min-height: 100vh;
+  background-color: #030712;
+  font-family: 'Manrope', sans-serif;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+/* Circular Progress Styles */
+.CircularProgressbar {
+  width: 100%;
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+.CircularProgressbar .CircularProgressbar-path {
+  stroke: #0D9488;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 20px rgba(13, 148, 136, 0.6));
+  transition: stroke-dashoffset 0.8s ease;
 }
 
-.App-link {
-    color: #61dafb;
+.CircularProgressbar .CircularProgressbar-trail {
+  stroke: #1F2937;
+  stroke-linecap: round;
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+.CircularProgressbar .CircularProgressbar-text {
+  fill: #F9FAFB;
+  font-size: 24px;
+  font-weight: 700;
+  font-family: 'Cabinet Grotesk', sans-serif;
+}
+
+/* Upload Zone Animations */
+.upload-zone {
+  transition: all 0.3s ease;
+}
+
+.upload-zone:hover {
+  border-color: #0D9488;
+  background-color: rgba(13, 148, 136, 0.05);
+  transform: translateY(-2px);
+}
+
+.upload-zone.active {
+  border-color: #2DD4BF;
+  background-color: rgba(45, 212, 191, 0.1);
+}
+
+/* Button Animations */
+.btn-primary {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(13, 148, 136, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+/* Badge Styles */
+.badge-error {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-success {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-warning {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Glassmorphism */
+.glass-header {
+  background: rgba(3, 7, 18, 0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(55, 65, 81, 0.5);
+}
+
+/* Loading Spinner */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Fade In Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.6s ease-out;
 }

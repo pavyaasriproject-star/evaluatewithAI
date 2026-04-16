@@ -391,9 +391,14 @@ Perform OCR on the handwritten script, compare semantically with the answer key,
     except ValueError as e:
         logger.error(f"Value error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Analysis error: {type(e).__name__}: {e}")
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        error_msg = str(e)
+        if "Could not process" in error_msg or "invalid" in error_msg.lower():
+            raise HTTPException(status_code=400, detail=f"Could not process the uploaded file. Please ensure you're uploading valid PDF or image files (JPEG, PNG, WEBP).")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {error_msg}")
 
 # ─── Batch Analysis ───
 
